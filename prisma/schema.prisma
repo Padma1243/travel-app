@@ -1,0 +1,198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  itineraries   Itinerary[]   @relation("OwnerItineraries")
+  collaborating Collaborator[]
+  offlineSync   OfflineSync[]
+
+  @@map("users")
+}
+
+model Itinerary {
+  id             String          @id @default(uuid())
+  title          String
+  description    String?
+  startDate      DateTime        @map("start_date")
+  endDate        DateTime        @map("end_date")
+  isPublic       Boolean         @default(false) @map("is_public")
+  ownerId        String          @map("owner_id")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @default(now()) @map("updated_at")
+  owner          User            @relation("OwnerItineraries", fields: [ownerId], references: [id], onDelete: Cascade)
+  destinations   Destination[]
+  activities     Activity[]
+  accommodations Accommodation[]
+  transportation Transportation[]
+  collaborators  Collaborator[]
+  budgetItems    BudgetItem[]
+  documents      Document[]
+  notes          Note[]
+
+  @@map("itineraries")
+}
+
+model Destination {
+  id             String          @id @default(uuid())
+  itineraryId    String          @map("itinerary_id")
+  name           String
+  address        String?
+  latitude       Decimal?        @db.Decimal(10, 8)
+  longitude      Decimal?        @db.Decimal(11, 8)
+  startDate      DateTime?       @map("start_date")
+  endDate        DateTime?       @map("end_date")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @default(now()) @map("updated_at")
+  itinerary      Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  activities     Activity[]
+  accommodations Accommodation[]
+  fromTransport  Transportation[] @relation("FromDestination")
+  toTransport    Transportation[] @relation("ToDestination")
+
+  @@map("destinations")
+}
+
+model Activity {
+  id            String       @id @default(uuid())
+  itineraryId   String       @map("itinerary_id")
+  destinationId String?      @map("destination_id")
+  title         String
+  description   String?
+  startTime     DateTime?    @map("start_time")
+  endTime       DateTime?    @map("end_time")
+  cost          Decimal?     @db.Decimal(10, 2)
+  currency      String?      @default("USD") @db.VarChar(3)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @default(now()) @map("updated_at")
+  itinerary     Itinerary    @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  destination   Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+
+  @@map("activities")
+}
+
+model Accommodation {
+  id               String       @id @default(uuid())
+  itineraryId      String       @map("itinerary_id")
+  destinationId    String?      @map("destination_id")
+  name             String
+  address          String?
+  checkIn          DateTime?    @map("check_in")
+  checkOut         DateTime?    @map("check_out")
+  cost             Decimal?     @db.Decimal(10, 2)
+  currency         String?      @default("USD") @db.VarChar(3)
+  bookingReference String?      @map("booking_reference")
+  notes            String?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @default(now()) @map("updated_at")
+  itinerary        Itinerary    @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  destination      Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+
+  @@map("accommodations")
+}
+
+model Transportation {
+  id                String       @id @default(uuid())
+  itineraryId       String       @map("itinerary_id")
+  fromDestinationId String?      @map("from_destination_id")
+  toDestinationId   String?      @map("to_destination_id")
+  type              String       @db.VarChar(50)
+  departureTime     DateTime?    @map("departure_time")
+  arrivalTime       DateTime?    @map("arrival_time")
+  cost              Decimal?     @db.Decimal(10, 2)
+  currency          String?      @default("USD") @db.VarChar(3)
+  bookingReference  String?      @map("booking_reference")
+  notes             String?
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @default(now()) @map("updated_at")
+  itinerary         Itinerary    @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  fromDestination   Destination? @relation("FromDestination", fields: [fromDestinationId], references: [id], onDelete: SetNull)
+  toDestination     Destination? @relation("ToDestination", fields: [toDestinationId], references: [id], onDelete: SetNull)
+
+  @@map("transportation")
+}
+
+model Collaborator {
+  id          String    @id @default(uuid())
+  itineraryId String    @map("itinerary_id")
+  userId      String    @map("user_id")
+  permission  String    @default("edit") @db.VarChar(20)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  itinerary   Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([itineraryId, userId])
+  @@map("collaborators")
+}
+
+model BudgetItem {
+  id            String    @id @default(uuid())
+  itineraryId   String    @map("itinerary_id")
+  category      String    @db.VarChar(50)
+  title         String
+  description   String?
+  estimatedCost Decimal   @map("estimated_cost") @db.Decimal(10, 2)
+  actualCost    Decimal?  @map("actual_cost") @db.Decimal(10, 2)
+  currency      String?   @default("USD") @db.VarChar(3)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @map("updated_at")
+  itinerary     Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+
+  @@map("budget_items")
+}
+
+model Document {
+  id          String    @id @default(uuid())
+  itineraryId String    @map("itinerary_id")
+  name        String
+  filePath    String    @map("file_path")
+  fileType    String?   @map("file_type") @db.VarChar(50)
+  size        Int?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  itinerary   Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model Note {
+  id          String    @id @default(uuid())
+  itineraryId String    @map("itinerary_id")
+  title       String
+  content     String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  itinerary   Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+model OfflineSync {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id")
+  action     String   @db.VarChar(20)
+  data       Json
+  synced     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("offline_sync")
+}

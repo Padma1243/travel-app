@@ -26,13 +26,13 @@ interface CalendarEvent {
   title: string
   date: Date
   type: "activity" | "transportation" | "accommodation"
-  itineraryId: number
+  itineraryId: string
   itineraryTitle: string
   location?: string
 }
 
 interface Itinerary {
-  id: number
+  id: string
   title: string
   startDate: string
   endDate: string

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useSession } from "@/components/session-provider"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -14,11 +14,17 @@ import { toast } from "sonner"
 export default function Profile() {
   const { session, login } = useSession({ required: true })
   const [isLoading, setIsLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const [formData, setFormData] = useState({
     name: session?.user?.name || "",
     currentPassword: "",
     newPassword: "",
   })
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -31,6 +37,9 @@ export default function Profile() {
       setIsLoading(true)
       const uploadRes = await fetch("/api/user/upload-avatar", {
         method: "POST",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: formData,
       })
       
@@ -42,7 +51,10 @@ export default function Profile() {
 
       const profileRes = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({ avatarUrl: url }),
       })
 
@@ -51,10 +63,10 @@ export default function Profile() {
       }
 
       const { user, token } = await profileRes.json()
-      login(user, token)  // ✅ Pass both user and token
-      toast.success("Profile image updated successfully")
+      login(user, token)
+      toast.success("Profile picture updated successfully")
     } catch (error) {
-      toast.error("Failed to update profile image")
+      toast.error("Failed to update profile picture")
     } finally {
       setIsLoading(false)
     }
@@ -66,18 +78,21 @@ export default function Profile() {
       setIsLoading(true)
       const res = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('token')}` // Add Authorization header
+        },
         body: JSON.stringify(formData),
       })
-
+  
       if (!res.ok) {
         const error = await res.json()
         throw new Error(error.message)
       }
-
+  
       const { user, token } = await res.json()
-      login(user, token)  // ✅ Pass both user and token
-
+      login(user, token)
+  
       setFormData(prev => ({
         ...prev,
         currentPassword: "",
@@ -101,22 +116,29 @@ export default function Profile() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="flex items-center gap-6">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={session?.user?.avatarUrl || ""} />
-                  <AvatarFallback>{session?.user?.name?.charAt(0)}</AvatarFallback>
-                </Avatar>
+                <div 
+                  className="relative cursor-pointer group"
+                  onClick={handleAvatarClick}
+                >
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={session?.user?.avatarUrl || ""} />
+                    <AvatarFallback>{session?.user?.name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <span className="text-white text-sm">Change</span>
+                  </div>
+                </div>
                 <div className="flex-1">
-                  <Label htmlFor="avatar" className="block mb-2">Profile Picture</Label>
-                  <Input
+                  
+                  <input
+                    ref={fileInputRef}
                     id="avatar"
                     type="file"
                     accept="image/*"
+                    className="hidden"
                     onChange={handleImageUpload}
                     disabled={isLoading}
                   />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Recommended: Square image, max 5MB
-                  </p>
                 </div>
               </div>
 

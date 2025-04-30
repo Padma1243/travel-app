@@ -9,6 +9,7 @@ import { Button } from "./ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet"
 import { ThemeToggle } from "./theme-toggle"
 import { Footer } from "./footer"
+import Head from 'next/head'
 
 interface LayoutProps {
   children: ReactNode

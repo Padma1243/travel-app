@@ -3,7 +3,7 @@ import { hashPassword } from './auth'
 import { Prisma } from '@prisma/client'
 
 // User functions
-export async function createUser(data: { name: string ; email: string; password: string }) {
+export async function createUser(data: { name: string; email: string; password: string }) {
   const hashedPassword = await hashPassword(data.password)
   return prisma.user.create({
     data: {
@@ -17,6 +17,13 @@ export async function createUser(data: { name: string ; email: string; password:
 export async function getUserByEmail(email: string) {
   return prisma.user.findUnique({
     where: { email },
+  })
+}
+
+// Add this function to get user by ID
+export async function getUserById(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
   })
 }
 
@@ -96,7 +103,6 @@ export async function createItinerary(data: Omit<Prisma.ItineraryCreateInput, 'o
 }
 
 export async function updateItinerary(id: string, data: Prisma.ItineraryUpdateInput, userId: string) {
-  // Check if user has permission to update
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id,
@@ -118,7 +124,6 @@ export async function updateItinerary(id: string, data: Prisma.ItineraryUpdateIn
 }
 
 export async function deleteItinerary(id: string, userId: string) {
-  // Check if user is the owner
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id,
@@ -137,7 +142,6 @@ export async function deleteItinerary(id: string, userId: string) {
 
 // Destination functions
 export async function createDestination(data: Omit<Prisma.DestinationCreateInput, 'itinerary'>, itineraryId: string, userId: string) {
-  // Check if user has permission
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id: itineraryId,
@@ -164,7 +168,6 @@ export async function createDestination(data: Omit<Prisma.DestinationCreateInput
 
 // Activity functions
 export async function createActivity(data: Omit<Prisma.ActivityCreateInput, 'itinerary'>, itineraryId: string, userId: string) {
-  // Check if user has permission
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id: itineraryId,
@@ -191,7 +194,6 @@ export async function createActivity(data: Omit<Prisma.ActivityCreateInput, 'iti
 
 // Budget functions
 export async function getBudgetSummary(itineraryId: string, userId: string) {
-  // Check if user has permission
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id: itineraryId,
@@ -222,7 +224,6 @@ export async function getBudgetSummary(itineraryId: string, userId: string) {
     select: { cost: true, currency: true },
   })
 
-  // Calculate totals (simplified - in real app would handle currency conversion)
   const totalEstimated = budgetItems.reduce(
     (sum, item) => sum + (item.estimatedCost?.toNumber() || 0),
     0
@@ -259,7 +260,6 @@ export async function getBudgetSummary(itineraryId: string, userId: string) {
 
 // Collaborator functions
 export async function addCollaborator(itineraryId: string, email: string, permission: string, userId: string) {
-  // Check if user is the owner
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id: itineraryId,
@@ -314,13 +314,10 @@ export async function syncOfflineChanges(userId: string) {
     orderBy: { createdAt: 'asc' },
   })
 
-  // Process each change (this would be more complex in a real app)
   for (const change of changes) {
     try {
-      // Apply the change based on entityType and action
       if (change.entityType === 'itinerary') {
         if (change.action === 'create') {
-          // Convert raw data to proper Prisma input
           const rawData = typeof change.data === 'object' && change.data !== null ? change.data : {};
           
           await prisma.itinerary.create({
@@ -344,7 +341,6 @@ export async function syncOfflineChanges(userId: string) {
           })
         }
       }
-      // Mark as synced
       await prisma.offlineSync.update({
         where: { id: change.id },
         data: { synced: true },

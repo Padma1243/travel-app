@@ -135,7 +135,9 @@ export function ActivityList({ activities, destinations, itineraryId, isEditable
 
             const response = await fetch(endpoint, {
                 method,
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json",
+                           'Authorization': `Bearer ${localStorage.getItem('token')}`
+                 },
                 body: JSON.stringify(data),
             })
 
@@ -369,17 +371,6 @@ export function ActivityList({ activities, destinations, itineraryId, isEditable
                                 />
                             </div>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="description">Description (Optional)</Label>
-                            <Textarea
-                                id="description"
-                                placeholder="Details about the activity"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            />
-                        </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="cost">Cost (Optional)</Label>
@@ -525,17 +516,6 @@ export function ActivityList({ activities, destinations, itineraryId, isEditable
                                 />
                             </div>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-description">Description (Optional)</Label>
-                            <Textarea
-                                id="edit-description"
-                                placeholder="Details about the activity"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            />
-                        </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="edit-cost">Cost (Optional)</Label>

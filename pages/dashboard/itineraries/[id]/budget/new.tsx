@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Head from "next/head"
 import { useRouter } from "next/router"
 import { useForm, SubmitHandler } from "react-hook-form" // Add SubmitHandler
@@ -28,12 +28,18 @@ const budgetItemSchema = z.object({
 type BudgetItemFormValues = z.infer<typeof budgetItemSchema>
 
 export default function NewBudgetItem() {
+  // Move the useSession hook inside useEffect
   const { session } = useSession({ required: true })
   const router = useRouter()
   const { id: itineraryId } = router.query
   const { toast } = useToast()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const {
     register,
@@ -44,7 +50,7 @@ export default function NewBudgetItem() {
     resolver: zodResolver(budgetItemSchema),
     defaultValues: {
       category: "accommodation",
-      currency: "USD", // Provide default value here
+      currency: "USD",
     },
   })
 

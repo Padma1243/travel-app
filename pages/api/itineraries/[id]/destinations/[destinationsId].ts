@@ -4,9 +4,9 @@ import prisma from "@/lib/prisma"
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { user } = req
-  const { id, destinationId } = req.query
+  const { id, destinationsId } = req.query  // Changed from destinationId to destinationsId to match the file name
   const itineraryId = String(id)
-  const destId = String(destinationId)
+  const destId = String(destinationsId)     // Updated variable name here as well
 
   // Check if user has permission to access this itinerary
   const itinerary = await prisma.itinerary.findFirst({

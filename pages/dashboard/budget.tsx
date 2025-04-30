@@ -23,10 +23,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DeleteDialog } from "@/components/delete-dialog"
+import { string } from "zod"
 
 interface BudgetItem {
-  id: number
-  itineraryId: number
+  id: string
+  itineraryId: string
   category: string
   title: string
   description: string | null
@@ -36,7 +37,7 @@ interface BudgetItem {
 }
 
 interface Itinerary {
-  id: number
+  id: string
   title: string
   startDate: string
   endDate: string
@@ -63,21 +64,13 @@ export default function Budget() {
     currency: "USD",
   })
 
-  useEffect(() => {
-    if (session) {
-      fetchItineraries()
-    }
-  }, [session])
-
-  useEffect(() => {
-    if (selectedItinerary) {
-      fetchBudgetItems(Number.parseInt(selectedItinerary))
-    }
-  }, [selectedItinerary])
-
   const fetchItineraries = async () => {
     try {
-      const response = await fetch("/api/itineraries")
+      const response = await fetch("/api/itineraries", {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
       if (!response.ok) {
         throw new Error("Failed to fetch itineraries")
       }
@@ -87,7 +80,7 @@ export default function Budget() {
 
       // Select the first itinerary by default if available
       if (data.length > 0) {
-        setSelectedItinerary(String(data[0].id))
+        setSelectedItinerary(data[0].id)
       }
     } catch (error) {
       toast({
@@ -99,7 +92,14 @@ export default function Budget() {
     }
   }
 
-  const fetchBudgetItems = async (itineraryId: number) => {
+  useEffect(() => {
+    if (session) {
+      fetchItineraries()
+    }
+  }, [session])
+
+  // Update the fetchBudgetItems function to accept string parameter
+  const fetchBudgetItems = async (itineraryId: string) => {
     try {
       const response = await fetch(`/api/itineraries/${itineraryId}/budget`)
       if (!response.ok) {
@@ -146,19 +146,24 @@ export default function Budget() {
     try {
       const response = await fetch(`/api/itineraries/${selectedItinerary}/budget`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({
           category: formData.category,
           title: formData.title,
           description: formData.description || null,
-          estimatedCost: Number.parseFloat(formData.estimatedCost),
-          actualCost: formData.actualCost ? Number.parseFloat(formData.actualCost) : null,
+          estimatedCost: parseFloat(formData.estimatedCost),  // Ensure it's a number
+          actualCost: formData.actualCost ? parseFloat(formData.actualCost) : null,  // Ensure it's a number or null
           currency: formData.currency,
+          itineraryId: selectedItinerary  // Add the itineraryId explicitly
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to add budget item")
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to add budget item")
       }
 
       toast({
@@ -167,11 +172,11 @@ export default function Budget() {
       })
 
       setIsAddDialogOpen(false)
-      fetchBudgetItems(Number.parseInt(selectedItinerary))
+      fetchBudgetItems(selectedItinerary)
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to add budget item",
+        description: error instanceof Error ? error.message : "Failed to add budget item",
         variant: "destructive",
       })
     }

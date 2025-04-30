@@ -84,7 +84,9 @@ export function DestinationList({ destinations, itineraryId, isEditable, onUpdat
 
       const response = await fetch(endpoint, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" ,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(data),
       })
 

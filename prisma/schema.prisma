@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,31 +8,33 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  itineraries   Itinerary[]   @relation("OwnerItineraries")
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  avatarUrl     String?
+  role          UserRole       @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  itineraries   Itinerary[]    @relation("OwnerItineraries")
   collaborating Collaborator[]
   offlineSync   OfflineSync[]
+  settings      UserSettings?  @relation("UserSettings") 
 
   @@map("users")
 }
 
 model Itinerary {
-  id             String          @id @default(uuid())
+  id             String           @id @default(uuid())
   title          String
   description    String?
-  startDate      DateTime        @map("start_date")
-  endDate        DateTime        @map("end_date")
-  isPublic       Boolean         @default(false) @map("is_public")
-  ownerId        String          @map("owner_id")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @default(now()) @map("updated_at")
-  owner          User            @relation("OwnerItineraries", fields: [ownerId], references: [id], onDelete: Cascade)
+  startDate      DateTime         @map("start_date")
+  endDate        DateTime         @map("end_date")
+  isPublic       Boolean          @default(false) @map("is_public")
+  ownerId        String           @map("owner_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @default(now()) @map("updated_at")
+  owner          User             @relation("OwnerItineraries", fields: [ownerId], references: [id], onDelete: Cascade)
   destinations   Destination[]
   activities     Activity[]
   accommodations Accommodation[]
@@ -49,17 +48,17 @@ model Itinerary {
 }
 
 model Destination {
-  id             String          @id @default(uuid())
-  itineraryId    String          @map("itinerary_id")
+  id             String           @id @default(uuid())
+  itineraryId    String           @map("itinerary_id")
   name           String
   address        String?
-  latitude       Decimal?        @db.Decimal(10, 8)
-  longitude      Decimal?        @db.Decimal(11, 8)
-  startDate      DateTime?       @map("start_date")
-  endDate        DateTime?       @map("end_date")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @default(now()) @map("updated_at")
-  itinerary      Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  latitude       Decimal?         @db.Decimal(10, 8)
+  longitude      Decimal?         @db.Decimal(11, 8)
+  startDate      DateTime?        @map("start_date")
+  endDate        DateTime?        @map("end_date")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @default(now()) @map("updated_at")
+  itinerary      Itinerary        @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
   activities     Activity[]
   accommodations Accommodation[]
   fromTransport  Transportation[] @relation("FromDestination")
@@ -195,4 +194,27 @@ model OfflineSync {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("offline_sync")
+}
+
+model UserSettings {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  tripReminders      Boolean  @default(true)
+  marketingEmails    Boolean  @default(false)
+  profileVisibility  String?  @default("public")
+  theme              String?  @default("system")
+  language           String?  @default("en")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation("UserSettings", fields: [userId], references: [id])
+
+  @@map("user_settings")
+}
+
+
+enum UserRole {
+  USER
+  ADMIN
 }

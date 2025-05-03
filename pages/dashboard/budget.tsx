@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import Head from "next/head"
 import { useRouter } from "next/router"
 import { DollarSign, Filter, Plus, Trash2 } from "lucide-react"
@@ -31,9 +31,10 @@ interface BudgetItem {
   category: string
   title: string
   description: string | null
-  estimatedCost: number
-  actualCost: number | null
+  estimatedCost: number | string  // Handle both number and string formats
+  actualCost: number | string | null
   currency: string
+  createdAt?: string
 }
 
 interface Itinerary {
@@ -66,9 +67,20 @@ export default function Budget() {
 
   const fetchItineraries = async () => {
     try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Authentication token missing",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch("/api/itineraries", {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
       })
       if (!response.ok) {
@@ -77,7 +89,7 @@ export default function Budget() {
       const data = await response.json()
       setItineraries(data)
       setIsLoading(false)
-
+  
       // Select the first itinerary by default if available
       if (data.length > 0) {
         setSelectedItinerary(data[0].id)
@@ -98,15 +110,51 @@ export default function Budget() {
     }
   }, [session])
 
-  // Update the fetchBudgetItems function to accept string parameter
-  const fetchBudgetItems = async (itineraryId: string) => {
+  const fetchBudgetItems = async () => {
+    if (!selectedItinerary) return;
+
     try {
-      const response = await fetch(`/api/itineraries/${itineraryId}/budget`)
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Authentication token missing",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/itineraries/${selectedItinerary}/budget`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "If-None-Match": localStorage.getItem(`budgetEtag-${selectedItinerary}`) || ''
+        }
+      })
+
+      if (response.status === 304) {
+        // Data hasn't changed, use cached data
+        return
+      }
+
       if (!response.ok) {
         throw new Error("Failed to fetch budget items")
       }
+
+      const etag = response.headers.get('etag')
+      if (etag) {
+        localStorage.setItem(`budgetEtag-${selectedItinerary}`, etag)
+      }
+
       const data = await response.json()
-      setBudgetItems(data.budgetItems || [])
+      // Ensure all numeric values are properly converted
+      const formattedData = Array.isArray(data) ? data.map(item => ({
+        ...item,
+        estimatedCost: Number(item.estimatedCost),
+        actualCost: item.actualCost ? Number(item.actualCost) : null
+      })) : []
+      
+      setBudgetItems(formattedData)
     } catch (error) {
       toast({
         title: "Error",
@@ -115,6 +163,12 @@ export default function Budget() {
       })
     }
   }
+
+  useEffect(() => {
+    if (selectedItinerary) {
+      fetchBudgetItems()
+    }
+  }, [selectedItinerary])
 
   const handleAddClick = () => {
     setFormData({
@@ -172,7 +226,7 @@ export default function Budget() {
       })
 
       setIsAddDialogOpen(false)
-      fetchBudgetItems(selectedItinerary)
+      fetchBudgetItems() // Remove the parameter
     } catch (error) {
       toast({
         title: "Error",
@@ -186,8 +240,12 @@ export default function Budget() {
     if (!currentBudgetItem) return
 
     try {
+      const token = localStorage.getItem("auth_token")
       const response = await fetch(`/api/itineraries/${currentBudgetItem.itineraryId}/budget/${currentBudgetItem.id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       })
 
       if (!response.ok) {
@@ -200,7 +258,7 @@ export default function Budget() {
       })
 
       setIsDeleteDialogOpen(false)
-      fetchBudgetItems(currentBudgetItem.itineraryId)
+      fetchBudgetItems() // Remove the parameter
     } catch (error) {
       toast({
         title: "Error",
@@ -210,33 +268,42 @@ export default function Budget() {
     }
   }
 
-  const filteredBudgetItems = filter === "all" ? budgetItems : budgetItems.filter((item) => item.category === filter)
-
   const calculateTotals = () => {
-    const totals = budgetItems.reduce(
-      (acc, item) => {
-        acc.estimated += item.estimatedCost
-        acc.actual += item.actualCost || 0
-        return acc
-      },
-      { estimated: 0, actual: 0 },
-    )
+    if (!Array.isArray(budgetItems) || budgetItems.length === 0) {
+      return { estimated: 0, actual: 0 }
+    }
 
-    return totals
+    return budgetItems.reduce(
+      (acc, item) => ({
+        estimated: acc.estimated + (Number(item?.estimatedCost) || 0),
+        actual: acc.actual + (Number(item?.actualCost) || 0)
+      }),
+      { estimated: 0, actual: 0 }
+    )
   }
 
   const calculateCategoryTotals = () => {
-    const categories = budgetItems.reduce((acc: Record<string, { estimated: number; actual: number }>, item) => {
-      if (!acc[item.category]) {
-        acc[item.category] = { estimated: 0, actual: 0 }
-      }
-      acc[item.category].estimated += item.estimatedCost
-      acc[item.category].actual += item.actualCost || 0
-      return acc
-    }, {})
+    if (!Array.isArray(budgetItems) || budgetItems.length === 0) {
+      return {}
+    }
 
-    return categories
+    return budgetItems.reduce((acc, item) => {
+      const category = item?.category || 'other'
+      if (!acc[category]) {
+        acc[category] = { estimated: 0, actual: 0 }
+      }
+      acc[category].estimated += Number(item?.estimatedCost) || 0
+      acc[category].actual += Number(item?.actualCost) || 0
+      return acc
+    }, {} as Record<string, { estimated: number; actual: number }>)
   }
+  
+  const filteredBudgetItems = useMemo(() => {
+    if (!Array.isArray(budgetItems)) return []
+    return filter === "all" 
+      ? budgetItems 
+      : budgetItems.filter((item) => item?.category === filter)
+  }, [budgetItems, filter])
 
   const totals = calculateTotals()
   const categoryTotals = calculateCategoryTotals()
@@ -379,10 +446,10 @@ export default function Budget() {
                                 </td>
                                 <td className="p-3 capitalize">{item.category}</td>
                                 <td className="p-3 text-right">
-                                  {item.currency} {item.estimatedCost.toFixed(2)}
+                                  {item.currency} {Number(item.estimatedCost).toFixed(2)}
                                 </td>
                                 <td className="p-3 text-right">
-                                  {item.actualCost !== null ? `${item.currency} ${item.actualCost.toFixed(2)}` : "-"}
+                                  {item.actualCost !== null ? `${item.currency} ${Number(item.actualCost).toFixed(2)}` : "-"}
                                 </td>
                                 <td className="p-3 text-right">
                                   <Button

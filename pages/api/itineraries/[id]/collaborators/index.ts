@@ -2,24 +2,25 @@ import type { NextApiRequest, NextApiResponse } from "next"
 import { withAuth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-// Replace the missing AuthenticatedRequest with an interface extension
 interface AuthenticatedRequest extends NextApiRequest {
   user: {
     id: string;
-    // Add other user properties you need
   }
 }
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { user } = req
   const { id } = req.query
-  const itineraryId = String(id) // Keep as string throughout
+  const itineraryId = String(id)
 
-  // Check if user is the owner of the itinerary
+  // Check if user has permission to access this itinerary
   const itinerary = await prisma.itinerary.findFirst({
     where: {
       id: itineraryId,
-      ownerId: user.id,
+      OR: [
+        { ownerId: user.id },
+        { collaborators: { some: { userId: user.id, permission: "admin" } } }
+      ],
     },
   })
 
@@ -31,14 +32,11 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     try {
       const { email, permission } = req.body
 
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" })
+      if (!email || !permission) {
+        return res.status(400).json({ message: "Email and permission are required" })
       }
 
-      if (!["view", "edit", "admin"].includes(permission)) {
-        return res.status(400).json({ message: "Invalid permission" })
-      }
-
+      // Find the user to be added as collaborator
       const collaboratorUser = await prisma.user.findUnique({
         where: { email },
       })
@@ -47,9 +45,10 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         return res.status(404).json({ message: "User not found" })
       }
 
+      // Check if already a collaborator
       const existingCollaborator = await prisma.collaborator.findFirst({
         where: {
-          itineraryId: String(itineraryId), // Convert to string
+          itineraryId,
           userId: collaboratorUser.id,
         },
       })
@@ -60,7 +59,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
       const collaborator = await prisma.collaborator.create({
         data: {
-          itineraryId: String(itineraryId), // Convert to string
+          itineraryId,
           userId: collaboratorUser.id,
           permission,
         },
@@ -80,29 +79,6 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     } catch (error) {
       console.error("Error adding collaborator:", error)
       return res.status(500).json({ message: "Failed to add collaborator" })
-    }
-  }
-
-  if (req.method === "GET") {
-    try {
-      const collaborators = await prisma.collaborator.findMany({
-        where: { itineraryId: String(itineraryId) }, // Convert to string
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatarUrl: true,
-            },
-          },
-        },
-      })
-
-      return res.status(200).json(collaborators)
-    } catch (error) {
-      console.error("Error fetching collaborators:", error)
-      return res.status(500).json({ message: "Failed to fetch collaborators" })
     }
   }
 

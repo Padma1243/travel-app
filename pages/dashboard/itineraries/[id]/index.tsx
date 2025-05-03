@@ -307,7 +307,7 @@ export default function ItineraryDetails() {
                 activities={itinerary.activities}
                 accommodations={itinerary.accommodations}
                 transportation={itinerary.transportation}
-                detailed
+                detailed={true}
               />
             </CardContent>
           </Card>

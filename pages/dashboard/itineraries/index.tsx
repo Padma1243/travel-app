@@ -13,16 +13,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { EmptyState } from "@/components/empty-state"
 import { useToast } from "@/components/ui/use-toast"
+import { string } from "zod"
 
 interface Itinerary {
-  id: number
+  id: string
   title: string
   description: string | null
   startDate: string
   endDate: string
   isPublic: boolean
   owner: {
-    id: number
+    id: string    // Ensure this is string type
     name: string
   }
   destinations: any[]
@@ -138,7 +139,8 @@ export default function Itineraries() {
                     </span>
                   </div>
                 </div>
-                {itinerary.owner.id !== session?.user.id && (
+                {/* Update the comparison with optional chaining */}
+                {itinerary.owner.id !== String(session?.user?.id) && (
                   <div className="flex items-center mt-2 text-sm text-muted-foreground">
                     <User className="h-4 w-4 mr-1" />
                     <span>Shared by {itinerary.owner.name}</span>

@@ -5,17 +5,17 @@ import prisma from "@/lib/prisma"
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { user } = req
   const { id, budgetItemId } = req.query
-  const itineraryId = Number.parseInt(id as string, 10)
-  const itemId = Number.parseInt(budgetItemId as string, 10)
+  const itineraryId = id as string
+  const itemId = budgetItemId as string
 
-  if (isNaN(itineraryId) || isNaN(itemId)) {
+  if (!itineraryId || !itemId) {
     return res.status(400).json({ message: "Invalid ID" })
   }
 
   // Check if user has permission to access this itinerary
   const itinerary = await prisma.itinerary.findFirst({
     where: {
-      id: String(itineraryId),  // Convert to string
+      id: itineraryId,
       OR: [
         { ownerId: user.id },
         { collaborators: { some: { userId: user.id, permission: { in: ["edit", "admin"] } } } }
@@ -30,13 +30,64 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Check if budget item exists and belongs to the itinerary
   const budgetItem = await prisma.budgetItem.findFirst({
     where: {
-      id: String(itemId),  // Convert to string
-      itineraryId: String(itineraryId),  // Convert to string
+      id: itemId,
+      itineraryId,
     },
   })
 
   if (!budgetItem) {
     return res.status(404).json({ message: "Budget item not found" })
+  }
+
+  // GET - Fetch single budget item
+  if (req.method === "GET") {
+    try {
+      const budgetItem = await prisma.budgetItem.findUnique({
+        where: { 
+          id: itemId,
+        },
+        include: {
+          itinerary: {
+            select: {
+              title: true,
+              startDate: true,
+              endDate: true,
+              owner: {
+                select: {
+                  name: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      })
+
+      if (!budgetItem) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Budget item not found" 
+        })
+      }
+
+      // Format the response
+      const formattedBudgetItem = {
+        ...budgetItem,
+        estimatedCost: Number(budgetItem.estimatedCost),
+        actualCost: budgetItem.actualCost ? Number(budgetItem.actualCost) : null,
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: formattedBudgetItem
+      })
+    } catch (error) {
+      console.error("Error fetching budget item:", error)
+      return res.status(500).json({ 
+        success: false,
+        message: "Failed to fetch budget item" 
+      })
+    }
   }
 
   // PUT - Update budget item
@@ -49,7 +100,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       const updatedBudgetItem = await prisma.budgetItem.update({
-        where: { id: String(itemId) },  // Convert to string
+        where: { id: itemId },
         data: {
           category,
           title,
@@ -71,7 +122,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "DELETE") {
     try {
       await prisma.budgetItem.delete({
-        where: { id: String(itemId) },  // Convert to string
+        where: { id: itemId },
       })
 
       return res.status(200).json({ message: "Budget item deleted successfully" })

@@ -62,19 +62,36 @@ export default function CalendarPage() {
 
   const fetchItineraries = async () => {
     try {
-      const response = await fetch("/api/itineraries")
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Authentication token missing",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch("/api/itineraries", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      })
+      
       if (!response.ok) {
         throw new Error("Failed to fetch itineraries")
       }
+      
       const data = await response.json()
       setItineraries(data)
-      setIsLoading(false)
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to load your itineraries",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }

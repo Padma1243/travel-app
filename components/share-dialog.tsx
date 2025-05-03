@@ -37,9 +37,22 @@ export function ShareDialog({ open, onOpenChange, itineraryId, isPublic, onUpdat
 
   const handleTogglePublic = async () => {
     try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Authentication token missing",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`/api/itineraries/${itineraryId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ isPublic: !isPublicSwitchOn }),
       })
 
@@ -71,9 +84,22 @@ export function ShareDialog({ open, onOpenChange, itineraryId, isPublic, onUpdat
     setIsSubmitting(true)
 
     try {
+      const token = localStorage.getItem("auth_token")
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Authentication token missing",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`/api/itineraries/${itineraryId}/collaborators`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ email, permission }),
       })
 
@@ -83,8 +109,8 @@ export function ShareDialog({ open, onOpenChange, itineraryId, isPublic, onUpdat
       }
 
       toast({
-        title: "Invitation sent",
-        description: `${email} has been invited to collaborate on this itinerary`,
+        title: "Success",
+        description: `${email} has been invited to collaborate`,
       })
 
       setEmail("")

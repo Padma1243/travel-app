@@ -1,64 +1,99 @@
-import type { NextApiRequest, NextApiResponse } from "next"
-import { withAuth } from "@/lib/auth"
-import prisma from "@/lib/prisma"
+import { NextApiRequest, NextApiResponse } from "next";
+import { getCurrentUser } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { user } = req
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const user = await getCurrentUser(req);
 
-  if (req.method !== "GET" && req.method !== "PUT") {
-    return res.status(405).json({ message: "Method not allowed" })
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
-  // Get user settings
-  if (req.method === "GET") {
-    try {
-      // In a real app, you would have a separate settings table
-      // For this example, we'll return some mock settings
-      return res.status(200).json({
-        notifications: {
-          emailNotifications: true,
-          pushNotifications: true,
-          tripReminders: true,
-          marketingEmails: false,
-        },
-        privacy: {
-          profileVisibility: "public",
-          shareLocation: false,
-          allowTagging: true,
-        },
-        appearance: {
-          theme: "system",
-          compactMode: false,
-          highContrast: false,
-        },
-      })
-    } catch (error) {
-      console.error("Settings fetch error:", error)
-      return res.status(500).json({ message: "Failed to fetch settings" })
-    }
-  }
+  try {
+    switch (req.method) {
+      case "GET": {
+        const settings = await prisma.userSettings.findUnique({
+          where: { userId: user.id },
+        });
 
-  // Update user settings
-  if (req.method === "PUT") {
-    try {
-      const { notifications, privacy, appearance } = req.body
+        return res.status(200).json(settings);
+      }
 
-      // In a real app, you would update the settings in the database
-      // For this example, we'll just return success
-      
-      return res.status(200).json({
-        message: "Settings updated successfully",
-        settings: {
-          notifications,
-          privacy,
-          appearance,
-        },
-      })
-    } catch (error) {
-      console.error("Settings update error:", error)
-      return res.status(500).json({ message: "Failed to update settings" })
+      case "POST": {
+        const existing = await prisma.userSettings.findUnique({
+          where: { userId: user.id },
+        });
+
+        if (existing) {
+          return res.status(200).json(existing);
+        }
+
+        const defaultSettings = await prisma.userSettings.create({
+          data: {
+            userId: user.id,
+            emailNotifications: true,
+            pushNotifications: true,
+            tripReminders: true,
+            marketingEmails: false,
+            profileVisibility: "public",
+            theme: "system",
+            language: "en",
+          },
+        });
+
+        return res.status(201).json(defaultSettings);
+      }
+
+      case "PUT": {
+        const {
+          emailNotifications,
+          pushNotifications,
+          tripReminders,
+          marketingEmails,
+          profileVisibility,
+          theme,
+          language,
+        } = req.body;
+
+        const updated = await prisma.userSettings.upsert({
+          where: { userId: user.id },
+          update: {
+            emailNotifications,
+            pushNotifications,
+            tripReminders,
+            marketingEmails,
+            profileVisibility,
+            theme,
+            language,
+          },
+          create: {
+            userId: user.id,
+            emailNotifications,
+            pushNotifications,
+            tripReminders,
+            marketingEmails,
+            profileVisibility,
+            theme,
+            language,
+          },
+        });
+
+        return res.status(200).json(updated);
+      }
+
+      case "DELETE": {
+        await prisma.userSettings.delete({
+          where: { userId: user.id },
+        });
+
+        return res.status(200).json({ message: "User settings deleted." });
+      }
+
+      default:
+        return res.status(405).json({ error: "Method not allowed" });
     }
+  } catch (error) {
+    console.error("Settings API error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 }
-
-export default withAuth(handler)

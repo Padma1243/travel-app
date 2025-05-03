@@ -49,27 +49,32 @@ export function SessionProvider({ children }: SessionProviderProps) {
   useEffect(() => {
     async function loadUserFromSession() {
       try {
-        // First check local storage for token
         const storedToken = localStorage.getItem('auth_token')
         
-        if (storedToken) {
-          // If token exists in local storage, validate it with the server
-          const res = await fetch("/api/auth/me", {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`
-            }
-          })
-          
-          if (res.ok) {
-            const data = await res.json()
-            setSession({ user: data.user, token: storedToken })
-          } else {
-            // If token is invalid, clear it
-            localStorage.removeItem('auth_token')
+        if (!storedToken) {
+          setLoading(false)
+          return
+        }
+    
+        const res = await fetch("/api/auth/me", {
+          headers: {
+            'Authorization': `Bearer ${storedToken}`,
+            'Content-Type': 'application/json'
           }
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          setSession({ user: data.user, token: storedToken })
+        } else {
+          // Clear invalid token
+          localStorage.removeItem('auth_token')
+          setSession(null)
         }
       } catch (error) {
         console.error("Failed to load user session:", error)
+        localStorage.removeItem('auth_token')
+        setSession(null)
       } finally {
         setLoading(false)
       }

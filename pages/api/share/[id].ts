@@ -7,9 +7,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { id } = req.query
-  const itineraryId = Number.parseInt(id as string, 10)
+  const itineraryId = id as string
 
-  if (isNaN(itineraryId)) {
+  if (itineraryId){
     return res.status(400).json({ message: "Invalid itinerary ID" })
   }
 

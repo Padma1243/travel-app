@@ -3,25 +3,28 @@ import { withAuth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { user } = req
   const { id } = req.query
-  
-  // Remove the parseInt since we're using string IDs
-  const itineraryId = id as string
+  const itineraryId = String(id)
 
-  // Check if user has permission to access this itinerary
-  const itinerary = await prisma.itinerary.findFirst({
-    where: {
-      id: itineraryId,
-      OR: [
-        { ownerId: user.id },
-        { collaborators: { some: { userId: user.id } } }
-      ],
-    },
-  })
+  if (req.method === "GET") {
+    try {
+      const budgetItems = await prisma.budgetItem.findMany({
+        where: { itineraryId },
+        orderBy: { createdAt: 'desc' }
+      })
 
-  if (!itinerary) {
-    return res.status(403).json({ message: "Not authorized or itinerary not found" })
+      // Format the numbers before sending
+      const formattedBudgetItems = budgetItems.map(item => ({
+        ...item,
+        estimatedCost: Number(item.estimatedCost),
+        actualCost: item.actualCost ? Number(item.actualCost) : null
+      }))
+
+      return res.status(200).json(formattedBudgetItems)
+    } catch (error) {
+      console.error("Error fetching budget items:", error)
+      return res.status(500).json({ message: "Failed to fetch budget items" })
+    }
   }
 
   // POST - Create new budget item
@@ -36,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           description,
           estimatedCost,
           actualCost,
-          currency,
+          currency: currency || "USD",
           itineraryId,
         },
       })
@@ -45,21 +48,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     } catch (error) {
       console.error("Error creating budget item:", error)
       return res.status(500).json({ message: "Failed to create budget item" })
-    }
-  }
-
-  // GET - Fetch budget items
-  if (req.method === "GET") {
-    try {
-      const budgetItems = await prisma.budgetItem.findMany({
-        where: { itineraryId },
-        orderBy: { createdAt: "desc" },
-      })
-
-      return res.status(200).json({ budgetItems })
-    } catch (error) {
-      console.error("Error fetching budget items:", error)
-      return res.status(500).json({ message: "Failed to fetch budget items" })
     }
   }
 

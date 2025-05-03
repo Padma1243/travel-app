@@ -35,15 +35,17 @@ export function DeleteDialog({ open, onOpenChange, onDelete, title, description 
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent aria-describedby="delete-dialog-description">
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
             <div className="p-1 rounded-full bg-red-100 text-red-600 dark:bg-red-900/20">
-              <AlertTriangle className="h-5 w-5" />
+              <AlertTriangle className="h-5 w-5" aria-hidden="true" />
             </div>
             <AlertDialogTitle>{title}</AlertDialogTitle>
           </div>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogDescription id="delete-dialog-description">
+            {description}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>

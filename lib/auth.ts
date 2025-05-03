@@ -60,3 +60,14 @@ export function withAuth(handler: any) {
     return handler(req, res)
   }
 }
+
+// Get current user from request (for API routes)
+export async function getCurrentUser(req: NextApiRequest) {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null
+  }
+
+  const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+  return await getUserFromToken(token)
+}

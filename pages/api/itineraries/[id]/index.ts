@@ -55,6 +55,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         include: {
           destinations: true,
           activities: true,
+          budgetItems: true,
           collaborators: {
             include: {
               user: {

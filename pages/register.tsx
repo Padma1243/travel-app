@@ -65,6 +65,7 @@ export default function Register() {
 
       // Pass both user and token to login function
       await login(result.user, result.token)
+      router.push("/login")
     } catch (err: any) {
       setError(err.message)
     } finally {

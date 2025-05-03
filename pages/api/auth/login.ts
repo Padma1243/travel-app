@@ -1,8 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { getUserByEmail } from "@/lib/db"
 import { verifyPassword, createToken } from "@/lib/auth"
+import { runCorsMiddleware } from '@/lib/cors'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+  // Run the CORS middleware
+  await runCorsMiddleware(req, res) 
+  
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" })
   }
